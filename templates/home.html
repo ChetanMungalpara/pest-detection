@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeafScan Pro</title>
+    <!-- 1. Load Tailwind CSS (replaces Bootstrap) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Keep your static logo -->
+    <link rel="icon" href="/static/images/logo.svg" type="image/svg+xml">
+    
+    <!-- 3. Custom Styles -->
+    <style>
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* A light gray background */
+        }
+        /* Hide the file input but keep it functional */
+        #upload-input {
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            position: absolute;
+            z-index: -1;
+        }
+        /* Styling for the video scanner */
+        #scanner-video {
+            transform: scaleX(-1); /* Mirror the webcam */
+        }
+        /* Custom spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4f46e5; /* Indigo */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* Keep your carousel background image */
+        .header-bg {
+            background-image: url('/static/images/crop_background1.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased">
+
+    <!-- Navbar (from your old code, but simpler) -->
+    <nav class="bg-gray-900 text-white shadow-lg">
+        <div class="container mx-auto max-w-6xl px-4 py-3">
+            <div class="flex items-center space-x-2">
+                <img src="/static/images/logo.svg" alt="PHASAL Logo" width="30" height="24">
+                <span class="text-xl font-bold">PHASAL</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header (with your background image) -->
+    <header class="header-bg relative text-white py-24 md:py-32 shadow-inner">
+        <!-- Overlay for readability -->
+        <div class="absolute inset-0 bg-black opacity-50"></div>
+        <div class="container mx-auto max-w-6xl p-4 text-center relative z-10">
+            <h1 class="text-4xl md:text-5xl font-bold">Plant Disease Recognition</h1>
+            <p class="text-lg md:text-xl text-gray-200 mt-2">Scan or upload a leaf to get an instant AI analysis.</p>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container mx-auto max-w-6xl p-4 lg:p-8 -mt-16 relative z-20">
+        
+        <!-- Main Content (2-column layout) -->
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+
+            <!-- Left Column: Results Display (Matches your description) -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg h-full" id="results-panel">
+                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-200 pb-2">Analysis Results</h2>
+                
+                <!-- Placeholder -->
+                <div id="placeholder" class="text-center text-gray-500 py-20">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17.25l.414-.414m5.636 0l-.414.414M11.25 15.75l.414.414m2.572 0l.414-.414M12 12.75l.414.414m-1.232 0l.414-.414M12 9.75l.414.414M10.768 9.75l.414-.414m2.572 0l.414.414m1.414-1.414l.414.414M15 11.25l.414-.414m-1.232 0l.414.414m-2.572 0l.414-.414m-1.414-1.414l.414.414M9 11.25l.414-.414"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <p class="mt-4 font-medium">Scan or upload a leaf to begin.</p>
+                </div>
+
+                <!-- Results (hidden by default) -->
+                <div id="results-data" class="hidden space-y-4">
+                    <!-- Damage Percentage -->
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Damage Percentage</label>
+                        <p class="text-4xl font-bold text-red-600" id="percentage-display">15.7%</p>
+                    </div>
+                    <!-- Plant Name -->
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Plant</label>
+                        <p class="text-xl font-semibold text-gray-900" id="plant-name-display">Apple</p>
+                    </div>
+                    <!-- Disease Name -->
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Detected Disease</label>
+                        <p class="text-xl font-semibold text-gray-900" id="disease-name-display">Apple Scab</p>
+                    </div>
+                    <!-- Cure -->
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Recommended Cure</label>
+                        <p class="text-base text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200" id="cure-display">
+                            Prune and destroy infected leaves and fruit...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Loading Spinner (hidden by default) -->
+                <div id="loading-spinner" class="hidden flex-col items-center justify-center text-center text-gray-500 py-20">
+                    <div class="spinner"></div>
+                    <p class="mt-4 font-medium">Analyzing... This may take a moment.</p>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Interaction -->
+            <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg">
+                
+                <!-- 1. Image/Scanner Display -->
+                <div class="relative w-full aspect-video bg-gray-200 rounded-lg overflow-hidden mb-4 border border-gray-300">
+                    <!-- Original Image -->
+                    <img id="original-image" src="https://placehold.co/600x450/e2e8f0/a0aec0?text=Your+Image+Here" alt="Original Leaf" class="absolute inset-0 w-full h-full object-cover">
+                    
+                    <!-- Mask Overlay (hidden by default) -->
+                    <img id="mask-overlay" src="" alt="Disease Mask" class="absolute inset-0 w-full h-full object-contain" style="display: none;">
+                    
+                    <!-- Webcam Video (hidden by default) -->
+                    <video id="scanner-video" playsinline autoplay muted class="absolute inset-0 w-full h-full object-cover" style="display: none;"></video>
+                </div>
+                <!-- This canvas is off-screen, used to capture the frame -->
+                <canvas id="scanner-canvas" class="hidden"></canvas>
+
+
+                <!-- 2. Action Buttons -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Upload Button -->
+                    <label for="upload-input" class="col-span-1 md:col-span-1 cursor-pointer inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.414l-1.293 1.293a1 1 0 01-1.414-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L13 9.414V13H5.5z"></path><path d="M9 13H5.5a3.5 3.5 0 010-7h.09A4.5 4.5 0 0113.5 6h.09a3.5 3.5 0 010 7H11v-1h2.5a2.5 2.5 0 000-5h-.09A3.5 3.5 0 006.5 7h-.09a2.5 2.5 0 000 5H9v1z"></path></svg>
+                        Upload
+                    </label>
+                    <input type="file" id="upload-input" accept="image/png, image/jpeg">
+                    
+                    <!-- Scan/Snap Button -->
+                    <button id="scan-snap-btn" type="button" class="col-span-1 md:col-span-2 inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 4a2 2 0 012-2h12a2 2 0 012 2v1H2V4zM2 7v9a2 2 0 002 2h12a2 2 0 002-2V7H2zm5 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"></path></svg>
+                        Scan with Camera
+                    </button>
+                    
+                    <!-- Stop Camera Button (hidden) -->
+                    <button id="stop-cam-btn" type="button" class="col-span-1 md:col-span-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-red-600 hover:bg-red-700 transition-all" style="display: none;">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                        Stop
+                    </button>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- 3. JavaScript Logic (The "Brain") -->
+    <script>
+        // --- DOM Elements ---
+        const scanBtn = document.getElementById('scan-snap-btn');
+        const stopBtn = document.getElementById('stop-cam-btn');
+        const uploadInput = document.getElementById('upload-input');
+        const uploadLabel = document.querySelector('label[for="upload-input"]');
+
+        const video = document.getElementById('scanner-video');
+        const canvas = document.getElementById('scanner-canvas');
+        const originalImage = document.getElementById('original-image');
+        const maskOverlay = document.getElementById('mask-overlay');
+        
+        const placeholder = document.getElementById('placeholder');
+        const resultsData = document.getElementById('results-data');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        const percentageDisplay = document.getElementById('percentage-display');
+        const plantNameDisplay = document.getElementById('plant-name-display');
+        const diseaseNameDisplay = document.getElementById('disease-name-display');
+        const cureDisplay = document.getElementById('cure-display');
+
+        let isScanning = false;
+        let stream = null;
+
+        // --- State Management ---
+        function showLoading() {
+            placeholder.style.display = 'none';
+            resultsData.style.display = 'none';
+            loadingSpinner.style.display = 'flex';
+        }
+
+        function showResults(data) {
+            percentageDisplay.innerText = data.damage_percentage + '%';
+            plantNameDisplay.innerText = data.plant_name;
+            diseaseNameDisplay.innerText = data.disease_name;
+            cureDisplay.innerText = data.cure;
+
+            // Update the images
+            originalImage.src = data.original_image;
+            maskOverlay.src = data.mask_image;
+            
+            // Make sure original is visible and mask is visible
+            originalImage.style.display = 'block';
+            maskOverlay.style.display = 'block';
+            
+            // Hide loading/placeholder
+            loadingSpinner.style.display = 'none';
+            placeholder.style.display = 'none';
+            resultsData.style.display = 'block';
+        }
+
+        function showError(message) {
+            loadingSpinner.style.display = 'none';
+            resultsData.style.display = 'none';
+            placeholder.style.display = 'block';
+            alert("Error: " + message);
+        }
+
+        function resetUI() {
+            placeholder.style.display = 'block';
+            resultsData.style.display = 'none';
+            loadingSpinner.style.display = 'none';
+            
+            originalImage.src = 'https://placehold.co/600x450/e2e8f0/a0aec0?text=Your+Image+Here';
+            maskOverlay.src = '';
+            maskOverlay.style.display = 'none';
+        }
+        // --- Button Handlers ---
+        scanBtn.addEventListener('click', () => {
+            if (isScanning) {
+                // Snap Photo
+                snapPhoto();
+                stopCamera();
+            } else {
+                // Start Camera
+                startCamera();
+            }
+        });
+
+        stopBtn.addEventListener('click', stopCamera);
+
+        uploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                if (isScanning) stopCamera();
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataURL = e.target.result;
+                    originalImage.src = dataURL; // Show preview immediately
+                    originalImage.style.display = 'block';
+                    maskOverlay.style.display = 'none'; // Hide old mask
+                    sendImageToServer(dataURL);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // --- Core Functions ---
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } // Prefer back camera
+                });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                originalImage.style.display = 'none';
+                maskOverlay.style.display = 'none';
+
+                scanBtn.innerHTML = `
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm10 4a2 2 0 100-4 2 2 0 000 4z"></path></svg>
+                    Snap Photo
+                `;
+                stopBtn.style.display = 'inline-flex';
+                uploadLabel.style.display = 'none'; // Hide upload while scanning
+                isScanning = true;
+            } catch (err) {
+                console.error("Error accessing camera:", err);
+                alert("Could not access camera. Please make sure you have one enabled and gave permission.");
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            video.srcObject = null;
+            video.style.display = 'none';
+            originalImage.style.display = 'block';
+            
+            scanBtn.innerHTML = `
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 4a2 2 0 012-2h12a2 2 0 012 2v1H2V4zM2 7v9a2 2 0 002 2h12a2 2 0 002-2V7H2zm5 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"></path></svg>
+                Scan with Camera
+            `;
+            stopBtn.style.display = 'none';
+            uploadLabel.style.display = 'inline-flex';
+            isScanning = false;
+        }
+
+        function snapPhoto() {
+            // Set canvas size to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw the video frame to the canvas (mirrored)
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Get the image as a Data URL
+            const dataURL = canvas.toDataURL('image/jpeg');
+            
+            originalImage.src = dataURL;
+            originalImage.style.display = 'block';
+            
+            // Send to server
+            sendImageToServer(dataURL);
+        }
+
+        async function sendImageToServer(dataURL) {
+            showLoading();
+
+            try {
+                // This now calls your new '/predict' endpoint
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: dataURL
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || `Server responded with status ${response.status}`);
+                }
+
+                const data = await response.json();
+                showResults(data);
+
+            } catch (err) {
+                console.error("Prediction failed:", err);
+                showError(err.message);
+                resetUI(); // Go back to default state on error
+            }
+        }
+
+    </script>
+</body>
+</html>
